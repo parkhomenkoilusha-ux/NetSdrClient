@@ -22,11 +22,9 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      # 1. Устанавливаем сканер
       - name: Install SonarScanner
         run: dotnet tool install --global dotnet-sonarscanner
 
-      # 2. Запускаем сканер (с ВАШИМИ правильными данными)
       - name: SonarScanner Begin
         shell: pwsh
         run: |
@@ -35,15 +33,17 @@ jobs:
             /o:"parkhomenkoilusha-ux" `
             /d:sonar.token="${{ secrets.SONAR_TOKEN }}" `
             /d:sonar.host.url="https://sonarcloud.io" `
-            /d:sonar.cs.opencover.reportsPaths="**/coverage.xml"
+            /d:sonar.cs.opencover.reportsPaths="**/coverage.cobertura.xml"
 
-      # 3. Сборка проекта (Build)
       - name: Restore and Build
         run: |
           dotnet restore NetSdrClient.sln
           dotnet build NetSdrClient.sln -c Release --no-restore
 
-      # 4. Отправляем отчет
+      # ИСПРАВЛЕНИЕ ЗДЕСЬ: добавлено "-c Release"
+      - name: Test
+        run: dotnet test NetSdrClient.sln --no-build -c Release --verbosity normal --collect:"XPlat Code Coverage"
+
       - name: SonarScanner End
         shell: pwsh
         run: dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
