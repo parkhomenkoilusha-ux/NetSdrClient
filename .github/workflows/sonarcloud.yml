@@ -22,12 +22,9 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      # 1. Устанавливаем сканер
       - name: Install SonarScanner
         run: dotnet tool install --global dotnet-sonarscanner
 
-      # 2. Запускаем сканер
-      # Обрати внимание: я изменил reportsPaths на coverage.cobertura.xml
       - name: SonarScanner Begin
         shell: pwsh
         run: |
@@ -38,18 +35,15 @@ jobs:
             /d:sonar.host.url="https://sonarcloud.io" `
             /d:sonar.cs.opencover.reportsPaths="**/coverage.cobertura.xml"
 
-      # 3. Сборка проекта (Build)
       - name: Restore and Build
         run: |
           dotnet restore NetSdrClient.sln
           dotnet build NetSdrClient.sln -c Release --no-restore
 
-      # 4. НОВЫЙ ШАГ: Запуск тестов
-      # --collect:"XPlat Code Coverage" создает отчет, который нужен Сонару
+      # ИСПРАВЛЕНИЕ ЗДЕСЬ: добавлено "-c Release"
       - name: Test
-        run: dotnet test NetSdrClient.sln --no-build --verbosity normal --collect:"XPlat Code Coverage"
+        run: dotnet test NetSdrClient.sln --no-build -c Release --verbosity normal --collect:"XPlat Code Coverage"
 
-      # 5. Отправляем отчет
       - name: SonarScanner End
         shell: pwsh
-        run: dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}" 
+        run: dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
