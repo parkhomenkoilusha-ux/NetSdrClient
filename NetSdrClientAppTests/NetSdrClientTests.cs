@@ -3,7 +3,7 @@ using NetSdrClientApp;
 using NetSdrClientApp.Networking;
 
 namespace NetSdrClientAppTests;
-
+// Unit tests for Lab 3 coverage requirement
 public class NetSdrClientTests
 {
     NetSdrClient _client;
