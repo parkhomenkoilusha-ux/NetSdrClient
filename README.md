@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=parkhomenkoilusha-ux_NetSdrClient&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=parkhomenkoilusha-ux_NetSdrClient)
->>>>>>> 76514e7a9f6530c5f4356bb83565f6d7b129eff1
 # Лабораторні з реінжинірингу (8×)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ppanchen_NetSdrClient&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ppanchen_NetSdrClient)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ppanchen_NetSdrClient&metric=coverage)](https://sonarcloud.io/summary/new_code?id=ppanchen_NetSdrClient)
