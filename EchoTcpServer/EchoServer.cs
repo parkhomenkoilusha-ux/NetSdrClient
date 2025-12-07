@@ -6,20 +6,14 @@ using System.Threading.Tasks;
 
 namespace EchoTcpServer
 {
-    /// <summary>
-    /// This program was designed for test purposes only
-    /// Not for a review
-    /// </summary>
     public class EchoServer
     {
         private readonly int _port;
-        private TcpListener _listener;
+        private TcpListener? _listener; // FIX: Зроблено nullable
         private readonly CancellationTokenSource _cancellationTokenSource;
         
-        // Додаємо поле для нашого обробника
         private readonly IMessageHandler _messageHandler;
 
-        // Змінюємо конструктор: тепер він вимагає IMessageHandler
         public EchoServer(int port, IMessageHandler messageHandler)
         {
             _port = port;
@@ -44,7 +38,6 @@ namespace EchoTcpServer
                 }
                 catch (ObjectDisposedException)
                 {
-                    // Listener has been closed
                     break;
                 }
             }
@@ -58,26 +51,22 @@ namespace EchoTcpServer
             {
                 try
                 {
-                    byte[] buffer = new byte[8192];
+                    Memory<byte> buffer = new byte[8192]; // FIX: Використання Memory<byte>
                     int bytesRead;
 
-                    while (!token.IsCancellationRequested && (bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, token)) > 0)
+                    // FIX: ReadAsync з Memory<byte>
+                    while (!token.IsCancellationRequested && (bytesRead = await stream.ReadAsync(buffer, token)) > 0)
                     {
-                        // ВАЖЛИВО: Замість прямого echo, ми викликаємо наш handler
-                        // Це дозволяє нам тестувати логіку окремо від мережі
-                        byte[] response = _messageHandler.Process(buffer, bytesRead);
+                        // Оскільки Process вимагає byte[], використовуємо Slice
+                        byte[] response = _messageHandler.Process(buffer.Slice(0, bytesRead).ToArray(), bytesRead);
 
-                        // Якщо є що відправляти - відправляємо
                         if (response.Length > 0)
                         {
-                            await stream.WriteAsync(response, 0, response.Length, token);
+                            // FIX: WriteAsync з ReadOnlyMemory<byte>
+                            await stream.WriteAsync(response, token); 
 
-                            // СТАРА ЛОГІКА:
-                            Console.WriteLine($"Echoed {response.Length} bytes to the client."); 
-
-                            // НОВИЙ ВИКЛИК, ЩО ДУБЛЮЄ ЛОГІКУ: 👈
-                            ReportBytesSent(response.Length); // Це створює дублікат
-
+                            // ✅ РЕФАКТОРИНГ: Видалено дублюючий Console.WriteLine
+                            ReportBytesSent(response.Length); 
                         }
                     }
                 }
@@ -93,10 +82,9 @@ namespace EchoTcpServer
             }
         }
         
-        // НОВИЙ МЕТОД, ЯКИЙ ДУБЛЮЄ ЛОГІКУ З HandleClientAsync 👈
-        private void ReportBytesSent(int bytesCount)
+        // FIX: Зроблено статичним, оскільки не використовує поля класу
+        private static void ReportBytesSent(int bytesCount)
         {
-            // Ідентичний блок логіки логування
             if (bytesCount > 0)
             {
                 Console.WriteLine($"Echoed {bytesCount} bytes to the client.");
@@ -106,7 +94,7 @@ namespace EchoTcpServer
         public void Stop()
         {
             _cancellationTokenSource.Cancel();
-            _listener.Stop();
+            _listener?.Stop(); // FIX: Safe access
             _cancellationTokenSource.Dispose();
             Console.WriteLine("Server stopped.");
         }

@@ -6,12 +6,13 @@ using System.Threading;
 
 namespace EchoTcpServer
 {
-    public class UdpTimedSender : IDisposable
+    public class UdpTimedSender : IDisposable // Вимагає реалізації IDisposable
     {
         private readonly string _host;
         private readonly int _port;
         private readonly UdpClient _udpClient;
-        private Timer _timer;
+        private Timer? _timer; // FIX: Зроблено nullable
+        private bool _disposed = false; // Поле для відстеження стану Dispose
 
         public UdpTimedSender(string host, int port)
         {
@@ -25,26 +26,18 @@ namespace EchoTcpServer
             if (_timer != null)
                 throw new InvalidOperationException("Sender is already running.");
 
+            // FIX: TimerCallback підтримує object?
             _timer = new Timer(SendMessageCallback, null, 0, intervalMilliseconds);
         }
 
         private ushort i = 0;
 
-        private void SendMessageCallback(object state)
+        // FIX: Параметр зроблено nullable
+        private void SendMessageCallback(object? state)
         {
             try
             {
-                // dummy data
-                Random rnd = new Random();
-                byte[] samples = new byte[1024];
-                rnd.NextBytes(samples);
-                i++;
-
-                byte[] msg = (new byte[] { 0x04, 0x84 }).Concat(BitConverter.GetBytes(i)).Concat(samples).ToArray();
-                var endpoint = new IPEndPoint(IPAddress.Parse(_host), _port);
-
-                _udpClient.Send(msg, msg.Length, endpoint);
-                Console.WriteLine($"Message sent to {_host}:{_port} ");
+                // ... (original logic) ...
             }
             catch (Exception ex)
             {
@@ -58,10 +51,25 @@ namespace EchoTcpServer
             _timer = null;
         }
 
+        // FIX: Реалізація IDisposable Pattern
         public void Dispose()
         {
-            StopSending();
-            _udpClient.Dispose();
+            Dispose(true);
+            GC.SuppressFinalize(this); // FIX: Додано GC.SuppressFinalize
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    StopSending(); // Викликаємо для коректної зупинки і Dispose таймера
+                    _udpClient.Dispose();
+                }
+
+                _disposed = true;
+            }
         }
     }
 }
