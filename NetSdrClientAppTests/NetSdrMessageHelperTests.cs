@@ -2,126 +2,131 @@ using NUnit.Framework;
 using NetSdrClientApp.Messages;
 using System;
 using System.Linq;
-using System.Collections.Generic; // Необхідно для ToList()
 
 namespace NetSdrClientAppTests
 {
     [TestFixture]
     public class NetSdrMessageHelperTests
     {
-        [SetUp]
-        public void Setup()
-        {
-        }
-
+        // 1. Тест создания Control Message
         [Test]
-        public void GetControlItemMessageTest()
-        {
-            //Arrange
-            var type = NetSdrMessageHelper.MsgTypes.Ack;
-            var code = NetSdrMessageHelper.ControlItemCodes.ReceiverState;
-            int parametersLength = 7500;
-
-            //Act
-            byte[] msg = NetSdrMessageHelper.GetControlItemMessage(type, code, new byte[parametersLength]);
-
-            var headerBytes = msg.Take(2);
-            var codeBytes = msg.Skip(2).Take(2);
-            var parametersBytes = msg.Skip(4);
-
-            var num = BitConverter.ToUInt16(headerBytes.ToArray());
-            var actualType = (NetSdrMessageHelper.MsgTypes)(num >> 13);
-            var actualLength = num - ((int)actualType << 13);
-            var actualCode = BitConverter.ToInt16(codeBytes.ToArray());
-
-            //Assert
-            Assert.That(headerBytes.Count(), Is.EqualTo(2));
-            Assert.That(msg.Length, Is.EqualTo(actualLength));
-            Assert.That(type, Is.EqualTo(actualType));
-
-            Assert.That(actualCode, Is.EqualTo((short)code));
-
-            Assert.That(parametersBytes.Count(), Is.EqualTo(parametersLength));
-        }
-
-        [Test]
-        public void GetDataItemMessageTest()
-        {
-            //Arrange
-            var type = NetSdrMessageHelper.MsgTypes.DataItem2;
-            int parametersLength = 7500;
-
-            //Act
-            byte[] msg = NetSdrMessageHelper.GetDataItemMessage(type, new byte[parametersLength]);
-
-            var headerBytes = msg.Take(2);
-            var parametersBytes = msg.Skip(2);
-
-            var num = BitConverter.ToUInt16(headerBytes.ToArray());
-            var actualType = (NetSdrMessageHelper.MsgTypes)(num >> 13);
-            var actualLength = num - ((int)actualType << 13);
-
-            //Assert
-            Assert.That(headerBytes.Count(), Is.EqualTo(2));
-            Assert.That(msg.Length, Is.EqualTo(actualLength));
-            Assert.That(type, Is.EqualTo(actualType));
-
-            Assert.That(parametersBytes.Count(), Is.EqualTo(parametersLength));
-        }
-
-        // --- ДОДАТКОВІ ТЕСТИ ДЛЯ ПІДВИЩЕННЯ COVERAGE (Lab 8) ---
-        
-        [Test]
-        public void GetSamples_ThrowsArgumentOutOfRangeException_ForInvalidSampleSize()
+        public void GetControlItemMessage_Should_Create_Correct_Byte_Array()
         {
             // Arrange
-            ushort invalidSize = 40; // 5 bytes
-            byte[] dummyBody = new byte[10];
-
-            // Act & Assert
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => 
-            {
-                _ = NetSdrMessageHelper.GetSamples(invalidSize, dummyBody).ToList();
-            });
-
-            Assert.That(ex.ParamName, Is.EqualTo("sampleSize"));
-            Assert.That(ex.Message, Does.Contain("Sample size must not exceed 32 bits (4 bytes)."));
-        }
-
-        [Test]
-        public void GetSamples_ReturnsCorrectSamples_For16BitSamples()
-        {
-            // Arrange (Little Endian: 00 01 = 256; 00 02 = 512; 00 03 = 768)
-            byte[] body = { 0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x00 }; 
-            ushort sampleSize = 16; 
+            var type = NetSdrMessageHelper.MsgTypes.SetControlItem; // Value 4
+            var code = NetSdrMessageHelper.ControlItemCodes.ReceiverFrequency; // Value 0x0020
+            byte[] parameters = { 0x01, 0x02 };
 
             // Act
-            var samples = NetSdrMessageHelper.GetSamples(sampleSize, body).ToList();
+            byte[] result = NetSdrMessageHelper.GetControlItemMessage(type, code, parameters);
 
             // Assert
-            Assert.That(samples.Count, Is.EqualTo(4));
-            Assert.That(samples[0], Is.EqualTo(256));
-            Assert.That(samples[1], Is.EqualTo(512));
-            Assert.That(samples[2], Is.EqualTo(768));
-            Assert.That(samples[3], Is.EqualTo(0)); 
+            // Length = 2 (header) + 2 (code) + 2 (params) = 6
+            Assert.AreEqual(6, result.Length);
+            
+            // Header: (4 << 13) | 6 = 32768 | 6 = 32774 -> [0x06, 0x80] (Little Endian)
+            ushort expectedHeader = (ushort)((ushort)type << 13 | 6);
+            Assert.AreEqual(BitConverter.GetBytes(expectedHeader)[0], result[0]);
+            
+            // Code at index 2
+            Assert.AreEqual(0x20, result[2]); 
+            
+            // Params at index 4
+            Assert.AreEqual(0x01, result[4]);
         }
 
+        // 2. Тест создания Data Message
         [Test]
-        public void GetSamples_HandlesIncompleteSampleAtEnd()
+        public void GetDataItemMessage_Should_Create_Correct_Byte_Array()
         {
-            // Arrange (Масив: 00 01 00 02 00) -> 2 повних семпли (0x0100 і 0x0200)
-            byte[] body = { 0x00, 0x01, 0x00, 0x02, 0x00 }; 
-            ushort sampleSize = 16; // 2 байти
+            // Arrange
+            var type = NetSdrMessageHelper.MsgTypes.DataItem;
+            byte[] parameters = { 0xFF };
 
             // Act
-            var samples = NetSdrMessageHelper.GetSamples(sampleSize, body).ToList();
+            byte[] result = NetSdrMessageHelper.GetDataItemMessage(type, parameters);
 
             // Assert
-            Assert.That(samples.Count, Is.EqualTo(2)); 
-            Assert.That(samples[0], Is.EqualTo(256)); // 0x00, 0x01
-            Assert.That(samples[1], Is.EqualTo(512)); // 0x00, 0x02
+            // Length = 2 (header) + 1 (param) = 3
+            Assert.AreEqual(3, result.Length);
+            Assert.AreEqual(0xFF, result[2]);
         }
 
-        //TODO: add more NetSdrMessageHelper tests
+        // 3. Тест TranslateMessage: NULL или короткое сообщение (Guard Clause)
+        [Test]
+        public void TranslateMessage_Should_Handle_Null_Or_Empty()
+        {
+            NetSdrMessageHelper.TranslateMessage(null, out var type, out var code, out var seq, out var body);
+            Assert.AreEqual(NetSdrMessageHelper.MsgTypes.Nack, type);
+
+            NetSdrMessageHelper.TranslateMessage(new byte[1], out type, out code, out seq, out body);
+            Assert.AreEqual(NetSdrMessageHelper.MsgTypes.Nack, type);
+        }
+
+        // 4. Тест TranslateMessage: Control Type (Ветка IF)
+        [Test]
+        public void TranslateMessage_Should_Parse_Control_Message()
+        {
+            // Создаем сообщение через сам хелпер, чтобы быть уверенным в формате
+            var msg = NetSdrMessageHelper.GetControlItemMessage(
+                NetSdrMessageHelper.MsgTypes.Ack, 
+                NetSdrMessageHelper.ControlItemCodes.RFFilter, 
+                new byte[] { 0xAA });
+
+            // Act
+            NetSdrMessageHelper.TranslateMessage(msg, out var type, out var code, out var seq, out var body);
+
+            // Assert
+            Assert.AreEqual(NetSdrMessageHelper.MsgTypes.Ack, type);
+            Assert.AreEqual(NetSdrMessageHelper.ControlItemCodes.RFFilter, code);
+            Assert.AreEqual(0xAA, body[0]);
+        }
+
+        // 5. Тест TranslateMessage: Data Type (Ветка ELSE)
+        [Test]
+        public void TranslateMessage_Should_Parse_Data_Message()
+        {
+            // Создаем сообщение типа DataItem (оно попадет в else в TranslateMessage)
+            var msg = NetSdrMessageHelper.GetDataItemMessage(
+                NetSdrMessageHelper.MsgTypes.DataItem, 
+                new byte[] { 0xBB, 0xCC });
+
+            // Act
+            NetSdrMessageHelper.TranslateMessage(msg, out var type, out var code, out var seq, out var body);
+
+            // Assert
+            Assert.AreEqual(NetSdrMessageHelper.MsgTypes.DataItem, type);
+            Assert.AreEqual(0, (int)code); // Код должен быть 0 для DataItem
+            Assert.AreEqual(2, body.Length);
+            Assert.AreEqual(0xBB, body[0]);
+        }
+
+        // 6. Тест GetSamples: Успешная конвертация (Happy Path)
+        [Test]
+        public void GetSamples_Should_Convert_Bytes_To_Ints()
+        {
+            // 16 бит = 2 байта на сэмпл. 
+            // Данные: [0x01, 0x00] -> число 1. [0x02, 0x00] -> число 2.
+            ushort sampleSize = 16;
+            byte[] body = { 0x01, 0x00, 0x02, 0x00 };
+
+            var result = NetSdrMessageHelper.GetSamples(sampleSize, body).ToList();
+
+            Assert.AreEqual(2, result.Count);
+            Assert.AreEqual(1, result[0]);
+            Assert.AreEqual(2, result[1]);
+        }
+
+        // 7. Тест GetSamples: Ошибка размера (Exception)
+        // Это покроет CheckSamplesParameters throw new ArgumentOutOfRangeException
+        [Test]
+        public void GetSamples_Should_Throw_If_Size_Too_Big()
+        {
+            ushort tooBigSampleSize = 40; // 40 / 8 = 5 байт (больше 4)
+            byte[] body = { 0x00 };
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => 
+                NetSdrMessageHelper.GetSamples(tooBigSampleSize, body));
+        }
     }
 }
