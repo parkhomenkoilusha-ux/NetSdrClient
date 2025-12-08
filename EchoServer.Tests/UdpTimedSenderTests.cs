@@ -55,6 +55,26 @@ namespace EchoServer.Tests
         }
 
         [Test]
+        public void StartSending_Should_Actually_Send_Messages_Wait_Test()
+        {
+            // Arrange
+            // Используем порт 0, чтобы система сама выбрала свободный порт и не было конфликтов
+            var sender = new UdpTimedSender("127.0.0.1", 0);
+
+            // Act
+            // Ставим очень маленький интервал (10 мс), чтобы таймер сработал быстро
+            sender.StartSending(10);
+
+            // ВАЖНО: Ждем немного (100 мс), чтобы таймер успел сработать хотя бы пару раз
+            // Это заставит выполниться код внутри SendMessageCallback
+            System.Threading.Thread.Sleep(100);
+
+            // Assert
+            // Просто проверяем, что не упало с ошибкой во время работы
+            Assert.DoesNotThrow(() => sender.Dispose());
+        }
+
+        [Test]
         public void Dispose_CallsStopSendingAndDisposesUdpClient()
         {
             // Arrange

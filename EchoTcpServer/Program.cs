@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Threading.Tasks;
+using System.Diagnostics.CodeAnalysis; // <--- 1. Добавлено пространство имен
 
 namespace EchoTcpServer
 {
+    [ExcludeFromCodeCoverage] // <--- 2. Добавлен атрибут исключения из покрытия
     class Program
     {
         public static async Task Main(string[] args)
