@@ -1,0 +1,54 @@
+name: SonarCloud analysis
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+permissions:
+  pull-requests: read
+
+jobs:
+  sonar-check:
+    name: Sonar Check
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install SonarScanner
+        run: dotnet tool install --global dotnet-sonarscanner
+
+      - name: SonarScanner Begin
+        shell: pwsh
+        run: |
+          dotnet sonarscanner begin `
+            /k:"parkhomenkoilusha-ux_NetSdrClient" `
+            /o:"parkhomenkoilusha-ux" `
+            /d:sonar.token="${{ secrets.SONAR_TOKEN }}" `
+            /d:sonar.host.url="https://sonarcloud.io" `
+            /d:sonar.cs.opencover.reportsPaths="**/TestResults/coverage.xml"
+
+      - name: Restore and Build
+        run: |
+          dotnet restore NetSdrClient.sln
+          dotnet build NetSdrClient.sln -c Release --no-restore
+
+      # Оновлений крок згідно з Лабораторною №3
+      - name: Tests with coverage (OpenCover)
+        shell: pwsh
+        run: |
+          dotnet test NetSdrClientAppTests/NetSdrClientAppTests.csproj -c Release --no-build `
+            /p:CollectCoverage=true `
+            /p:CoverletOutput=TestResults/coverage.xml `
+            /p:CoverletOutputFormat=opencover
+
+      - name: SonarScanner End
+        shell: pwsh
+        run: dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
